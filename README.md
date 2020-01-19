@@ -1,2 +1,2 @@
-# gruntwork
+# Gruntwork
 Gruntwork terraform guide

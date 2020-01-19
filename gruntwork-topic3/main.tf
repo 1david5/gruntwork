@@ -1,9 +1,20 @@
 provider "aws" {
   region                  = "us-east-2"
-  shared_credentials_file = "/home/ec2-user/.aws/config"
+  shared_credentials_file = "/Users/david/.aws/config"
   profile                 = "dev"
 }
 
+terraform {
+  backend "s3" {
+    # Replace this with your bucket name!
+    bucket         = "terraform-state-20191104"
+    key            = "global/s3/terraform.tfstate"
+    region         = "us-east-2"
+    # Replace this with your DynamoDB table name!
+    dynamodb_table = "terraform-up-and-running-locks"
+    encrypt        = true
+  }
+}
 resource "aws_s3_bucket" "terraform_state" {
   bucket = "terraform-state-20191104"
   # Enable versioning so we can see the full revision history of our
