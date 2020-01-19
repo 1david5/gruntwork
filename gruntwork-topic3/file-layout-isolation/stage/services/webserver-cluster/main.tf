@@ -1,12 +1,35 @@
+terraform {
+  backend "s3" {
+    # Replace this with your bucket name!
+    bucket = "terraform-state-20191104"
+    key    = "stage/services/webserver-cluster/terraform.tfstate"
+    region = "us-east-2"
+    # Replace this with your DynamoDB table name!
+    dynamodb_table = "terraform-up-and-running-locks"
+    encrypt        = true
+  }
+}
+
+data "terraform_remote_state" "db" {
+  backend = "s3"
+
+  config = {
+      # Replace this with your bucket name!
+    bucket = "terraform-state-20191104"
+    key    = "stage/data-stores/mysql/terraform.tfstate"
+    region = "us-east-2"
+  }
+}
+
 provider "aws" {
   region                  = "us-east-2"
   # shared_credentials_file = "/home/ec2-user/.aws/cred"
   # profile                 = "dev"
 
-  assume_role {
-  #     session_name = "SESSION_NAME"
-  #     external_id  = "EXTERNAL_ID"
-    }
+#   assume_role {
+#       session_name = "SESSION_NAME"
+#       external_id  = "EXTERNAL_ID"
+#     }
 
 }
 
@@ -17,7 +40,7 @@ variable "server_port" {
 }
 
 resource "aws_security_group" "instance_SG" {
-  name = "terr_first_ec2"
+  name = "tf_ec2sg"
   ingress{
     from_port   = var.server_port
     to_port     = var.server_port
@@ -29,22 +52,24 @@ resource "aws_security_group" "instance_SG" {
   }
 }
 
-resource "aws_instance" "first_ec2" {
-  ami                    = "ami-0c55b159cbfafe1f0"
-  instance_type          = "t2.micro"
-  vpc_security_group_ids = [aws_security_group.instance_SG.id]
-  user_data = <<-EOF
-              #!/bin/bash
-              echo "Hello, World" > index.html
-              nohup busybox httpd -f -p 8080 &
-              EOF
-  tags = {
-    Name = "terxample"
-  }
-}
+# resource "aws_instance" "tf_ec2" {
+#   ami                    = "ami-0c55b159cbfafe1f0"
+#   instance_type          = "t2.micro"
+#   vpc_security_group_ids = [aws_security_group.instance_SG.id]
+#   user_data = <<-EOF
+            # !/bin/bash
+            # db_address="${data.terraform_remote_state.db.outputs.address}"
+            # db_port="${data.terraform_remote_state.db.outputs.port}"
+            # echo "Hello, World. DB is at $db_address:$db_port" >> index.html
+            # nohup busybox httpd -f -p "${var.server_port}" &
+            # EOF
+#   tags = {
+    # Name = "tf_xample"
+#   }
+# }
 
 
-resource "aws_security_group" "elb" {
+resource "aws_security_group" "elb_sg" {
   name = "terraform-example-elb"
   # Allow all outbound
   egress {
@@ -67,10 +92,12 @@ resource "aws_launch_configuration" "my_LConfig" {
   instance_type   = "t2.micro"
   security_groups = [aws_security_group.instance_SG.id]
   user_data = <<-EOF
-              #!/bin/bash
-                echo "Hello, World" > index.html
-                nohup busybox httpd -f -p 8080 &
-              EOF
+                #!/bin/bash
+                db_address="${data.terraform_remote_state.db.outputs.address}"
+                db_port="${data.terraform_remote_state.db.outputs.port}"
+                echo "Hello, World. DB is at $db_address:$db_port" >> index.html
+                nohup busybox httpd -f -p "${var.server_port}" &
+                EOF
   lifecycle {
     create_before_destroy = true
   }
@@ -96,7 +123,7 @@ resource "aws_autoscaling_group" "my_ASG" {
 resource "aws_elb" "exampleclb" {
   name               = "terraform-asg-example"
   availability_zones = data.aws_availability_zones.all.names
-  security_groups    = [aws_security_group.elb.id]
+  security_groups    = [aws_security_group.elb_sg.id]
 
   health_check {
     target              = "HTTP:${var.server_port}/"
@@ -117,10 +144,10 @@ resource "aws_elb" "exampleclb" {
 
 data "aws_availability_zones" "all" {}
 
-output "public_ip" {
-  value       = aws_instance.first_ec2.public_ip
-  description = "The public IP of the web server"
-}
+# output "public_ip" {
+#   value       = aws_instance.first_ec2.public_ip
+#   description = "The public IP of the web server"
+# }
 
 output "clb_dns_name" {
   value       = aws_elb.exampleclb.dns_name
