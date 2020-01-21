@@ -36,7 +36,7 @@ resource "aws_security_group" "instance_SG" {
   }
 }
 
-# Daniel
+# Daniel :)
 
 resource "aws_security_group" "elb_sg" {
   name = "${var.cluster_name}-elb_sg"
