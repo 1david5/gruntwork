@@ -19,4 +19,5 @@ module "webserver-cluster" {
   instance_type = "t2.micro"
   min_size      = 2
   max_size      = 2
+  server_port   = var.server_port
 }
