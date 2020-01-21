@@ -35,9 +35,7 @@ resource "aws_security_group" "instance_SG" {
     create_before_destroy = true
   }
 }
-
-# Daniel :)
-
+# :)
 resource "aws_security_group" "elb_sg" {
   name = "${var.cluster_name}-elb_sg"
   # Allow all outbound
